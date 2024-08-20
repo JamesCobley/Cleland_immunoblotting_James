@@ -1,6 +1,6 @@
 numpy
 pandas
-matplotib
+matplotlib
 requests
 streamlit
 scipy
