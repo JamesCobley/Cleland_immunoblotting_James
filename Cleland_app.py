@@ -1,8 +1,23 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import streamlit as st
+import requests
 from itertools import combinations
 from scipy.special import comb
+from io import BytesIO
+
+def fetch_protein_sequence(uniprot_id):
+    """Fetch protein sequence from UniProt"""
+    try:
+        url = f"https://www.uniprot.org/uniprot/{uniprot_id}.fasta"
+        response = requests.get(url)
+        response.raise_for_status()
+        fasta = response.text
+        sequence = ''.join(fasta.split('\n')[1:]).replace(' ', '')
+        return sequence
+    except requests.RequestException as e:
+        st.error(f"Failed to fetch data for UniProt ID {uniprot_id}: {e}")
+        return None
 
 def calculate_molecular_mass(sequence):
     """Calculate molecular mass of the protein based on the sequence."""
@@ -62,12 +77,12 @@ def plot_immunoblot(molecular_mass, grouped_proteoforms, num_cysteines):
 # Streamlit app
 st.title('Cysteine Redox Proteoforms Immunoblot Simulation')
 
-uniprot_id = st.text_input("Enter UniProt Accession Number:", "P12345")
+uniprot_id = st.text_input("Enter UniProt Accession Number:", "P04406")
 
 if uniprot_id:
     sequence = fetch_protein_sequence(uniprot_id)
     if sequence:
-        num_cysteines = len(get_cysteine_positions(sequence))
+        num_cysteines = sequence.count('C')  # Count the number of cysteines
         molecular_mass = calculate_molecular_mass(sequence)
 
         st.write(f"Protein Sequence Length: {len(sequence)} amino acids")
