@@ -1,51 +1,43 @@
+import gzip
+from Bio import SeqIO
 import pandas as pd
+from Bio.SeqUtils import molecular_weight
 
-# Load the Excel file
-file_path = '/content/Supplementary data file 5.xlsx'  # Replace with the correct path
-xls = pd.ExcelFile(file_path)
+# Function to calculate cysteine count and molecular mass
+def get_protein_info(seq_record):
+    sequence = str(seq_record.seq)
+    cysteine_count = sequence.count('C')  # Count cysteines ('C')
+    mol_mass = molecular_weight(sequence, seq_type='protein') / 1000  # Molecular mass in kDa
+    return cysteine_count, mol_mass
 
-# List to store measurable protein data
-measurable_proteins = []
+# Path to gzipped FASTA file
+fasta_gz_path = '/content/proteins.fasta.gz'  # Replace with your FASTA file path
 
-# Loop through each sheet in the Excel file
-for sheet in xls.sheet_names:
-    df = pd.read_excel(xls, sheet)
-    
-    # Ignore columns A-C which correspond to 0 cysteine residues
-    # We will loop over the cysteine columns starting from where cysteine counts begin
-    for col in df.columns:
-        if 'Cysteine_Residue_Count' in col and '0_' not in col:  # Skip if cysteine count is 0
-            cysteine_count_col = col
-            cysteine_mass_col = col.replace('Residue_Count', 'Molecular_Mass_kDa')
-            cysteine_id_col = col.replace('Residue_Count', 'IDs')  # Assuming UniProt ID column
-            
-            if cysteine_mass_col in df.columns and cysteine_id_col in df.columns:
-                # Iterate through each protein entry
-                for i, row in df.iterrows():
-                    cysteine_count = row[cysteine_count_col]
-                    molecular_mass = row[cysteine_mass_col] / 1000  # Convert to kDa from Daltons
-                    uniprot_id = row[cysteine_id_col]  # UniProt ID
-                    
-                    # Calculate the oxidized mass
-                    oxidized_mass = molecular_mass + (cysteine_count * 5)
-                    
-                    # Check if protein is measurable
-                    if molecular_mass <= 150 and oxidized_mass <= 200:
-                        # Add to measurable proteins list
-                        measurable_proteins.append({
-                            'UniProt_ID': uniprot_id,
-                            'Cysteine_Residue_Count': cysteine_count,
-                            '100%-Reduced_Molecular_Mass': molecular_mass,
-                            '100%-Oxidised_Molecular_Mass': oxidized_mass
-                        })
+# List to store protein data
+protein_data = []
 
-# Create a DataFrame for measurable proteins
-measurable_df = pd.DataFrame(measurable_proteins)
+# Open the gzipped FASTA file and read protein sequences
+with gzip.open(fasta_gz_path, "rt") as fasta_file:
+    for seq_record in SeqIO.parse(fasta_file, "fasta"):
+        protein_id = seq_record.id  # UniProt ID (from the FASTA header)
+        cysteine_count, mol_mass = get_protein_info(seq_record)  # Get cysteine count and molecular mass
+        
+        # Calculate the oxidized molecular mass
+        oxidized_mass = mol_mass + (cysteine_count * 5)
+        
+        # Add the protein information to the list
+        protein_data.append({
+            'Protein_ID': protein_id,
+            'Cysteine Residue Integer': cysteine_count,
+            '100%-Reduced_Molecular_Mass': mol_mass,
+            '100%-Oxidised_Molecular_Mass': oxidized_mass
+        })
 
-# Write to an Excel file
-output_file = '/content/measurable_proteins.xlsx'  # Output file path
-measurable_df.to_excel(output_file, index=False)
+# Create a DataFrame from the collected data
+protein_df = pd.DataFrame(protein_data)
 
-# Print the number of measurable proteins
-print(f"Number of measurable proteins: {len(measurable_proteins)}")
-print(f"Excel file with measurable proteins saved to: {output_file}")
+# Write the DataFrame to an Excel file
+output_file = '/content/protein_masses.xlsx'  # Path to save the Excel file
+protein_df.to_excel(output_file, index=False)
+
+print(f"Excel file with protein data saved to: {output_file}")
