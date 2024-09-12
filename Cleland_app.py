@@ -39,7 +39,10 @@ def generate_proteoforms(num_cysteines):
     
     return proteoforms, grouped_proteoforms
 
-# Define the predict_band_position function here
+def calculate_pascal_row(num_cysteines):
+    """Generate the Pascal triangle row for the given number of cysteines."""
+    return [int(comb(num_cysteines, k)) for k in range(num_cysteines + 1)]
+
 def predict_band_position(molecular_weight, coefficients):
     """Predict the position of the band using the scaling formula from the standard curve."""
     log_mw = np.log10(molecular_weight)
@@ -49,19 +52,10 @@ def predict_band_position(molecular_weight, coefficients):
 def plot_immunoblot(molecular_mass, grouped_proteoforms, num_cysteines, coefficients):
     """Plot the positions of the redox proteoforms on a scale-invariant simulated immunoblot."""
     
-    # Fixed molecular weight markers from 10 kDa to 250 kDa
-    marker_positions = np.array([10, 25, 37, 50, 75, 100, 150, 250])
-    
     # Calculate band positions using molecular weights
     band_positions = [molecular_mass + (5 * i) for i in range(len(grouped_proteoforms))]
     
     fig, ax = plt.subplots(figsize=(5, 8))
-
-    # Plot the molecular weight markers (10 to 250 kDa)
-    for marker in marker_positions:
-        y_pos = predict_band_position(marker, coefficients)  # Use the standard curve to place marker
-        ax.plot([0.2, 0.8], [y_pos, y_pos], 'r--', lw=2)  # Plot red dashed line for marker
-        ax.text(0.85, y_pos, f'{marker} kDa', verticalalignment='center', fontsize=12, color='red')
 
     # Plot the redox proteoforms at their corresponding molecular weights
     for i, pos in enumerate(band_positions):
@@ -74,8 +68,8 @@ def plot_immunoblot(molecular_mass, grouped_proteoforms, num_cysteines, coeffici
     ax.set_ylim(predict_band_position(250, coefficients), predict_band_position(10, coefficients))
     
     ax.set_xlim(0, 1)
-    ax.set_yticks([predict_band_position(mw, coefficients) for mw in marker_positions])
-    ax.set_yticklabels([f'{mw:.0f} kDa' for mw in marker_positions])
+    ax.set_yticks([predict_band_position(mw, coefficients) for mw in [10, 25, 37, 50, 75, 100, 150, 250]])
+    ax.set_yticklabels([f'{mw:.0f} kDa' for mw in [10, 25, 37, 50, 75, 100, 150, 250]])
     ax.set_xticks([])
     ax.set_xlabel('Protein Redox States', fontsize=15)
     ax.set_ylabel('Molecular Mass (kDa)', fontsize=15)
@@ -105,9 +99,21 @@ if uniprot_id:
         # Calculate the molecular mass of the 100%-oxidised form
         oxidised_mass = molecular_mass + (num_cysteines * 5)
 
+        # 1. Number of bands is the cysteine residue count + 1
+        num_bands = num_cysteines + 1
+        st.write(f"Number of Bands: {num_bands}")
+        
+        # 2. Number of cysteine redox proteoforms (2^num_cysteines)
+        num_proteoforms = 2 ** num_cysteines
+        st.write(f"Number of Cysteine Redox Proteoforms: {num_proteoforms}")
+
+        # 3. Pascal triangle-based proteoform structure
+        pascal_row = calculate_pascal_row(num_cysteines)
+        st.write(f"Pascal-Based Proteoform Band Structure: {pascal_row}")
+
         st.write(f"Protein Sequence Length: {len(sequence)} amino acids")
         st.write(f"Molecular Mass (Reduced Form): {molecular_mass:.2f} kDa")
-        st.write(f"Molecular Mass (100%-Oxidised Form): {oxidised_mass:.2f} kDa")  # Display oxidised mass
+        st.write(f"Molecular Mass (100%-Oxidised Form): {oxidised_mass:.2f} kDa")
         st.write(f"Number of Cysteines: {num_cysteines}")
 
         # Cleland Immunoblot suitability
