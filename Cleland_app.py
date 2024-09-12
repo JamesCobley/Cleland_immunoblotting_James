@@ -39,6 +39,13 @@ def generate_proteoforms(num_cysteines):
     
     return proteoforms, grouped_proteoforms
 
+# Define the predict_band_position function here
+def predict_band_position(molecular_weight, coefficients):
+    """Predict the position of the band using the scaling formula from the standard curve."""
+    log_mw = np.log10(molecular_weight)
+    pixel_position = np.polyval(coefficients, log_mw)
+    return pixel_position
+
 def plot_immunoblot(molecular_mass, grouped_proteoforms, num_cysteines, coefficients):
     """Plot the positions of the redox proteoforms on a scale-invariant simulated immunoblot."""
     
@@ -100,7 +107,7 @@ if uniprot_id:
 
         st.write(f"Protein Sequence Length: {len(sequence)} amino acids")
         st.write(f"Molecular Mass (Reduced Form): {molecular_mass:.2f} kDa")
-        st.write(f"Molecular Mass (100%-Oxidised Form): {oxidised_mass:.2f} kDa")
+        st.write(f"Molecular Mass (100%-Oxidised Form): {oxidised_mass:.2f} kDa")  # Display oxidised mass
         st.write(f"Number of Cysteines: {num_cysteines}")
 
         # Cleland Immunoblot suitability
