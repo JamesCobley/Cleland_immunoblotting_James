@@ -39,40 +39,46 @@ def generate_proteoforms(num_cysteines):
     
     return proteoforms, grouped_proteoforms
 
-def predict_band_position(molecular_weight, coefficients):
-    """Predict the position of the band using the scaling formula from the standard curve."""
-    log_mw = np.log10(molecular_weight)
-    pixel_position = np.polyval(coefficients, log_mw)
-    return pixel_position
-
 def plot_immunoblot(molecular_mass, grouped_proteoforms, num_cysteines, coefficients):
-    """Plot the positions of the redox proteoforms on a simulated immunoblot."""
-    redox_grades = [(100 * (num_cysteines - k) / num_cysteines) for k in range(num_cysteines + 1)]
+    """Plot the positions of the redox proteoforms on a scale-invariant simulated immunoblot."""
     
-    # Calculate band positions using the scaling formula
-    band_positions = [predict_band_position(molecular_mass + (5 * i), coefficients) for i in range(len(redox_grades))]
+    # Fixed molecular weight markers from 10 kDa to 250 kDa
+    marker_positions = np.array([10, 25, 37, 50, 75, 100, 150, 250])
+    
+    # Calculate band positions using molecular weights
+    band_positions = [molecular_mass + (5 * i) for i in range(len(grouped_proteoforms))]
     
     fig, ax = plt.subplots(figsize=(5, 8))
-    
+
+    # Plot the molecular weight markers (10 to 250 kDa)
+    for marker in marker_positions:
+        y_pos = predict_band_position(marker, coefficients)  # Use the standard curve to place marker
+        ax.plot([0.2, 0.8], [y_pos, y_pos], 'r--', lw=2)  # Plot red dashed line for marker
+        ax.text(0.85, y_pos, f'{marker} kDa', verticalalignment='center', fontsize=12, color='red')
+
+    # Plot the redox proteoforms at their corresponding molecular weights
     for i, pos in enumerate(band_positions):
+        y_pos = predict_band_position(pos, coefficients)  # Position the band using the scaling
         band_intensity = (num_cysteines - i + 1) / (num_cysteines + 1)  # Intensity decreases with oxidation
-        ax.plot([0.3, 0.7], [pos, pos], linewidth=10 * band_intensity, color='black')
-        ax.text(0.75, pos, f'{redox_grades[i]:.1f}%', verticalalignment='center', fontsize=12)
+        ax.plot([0.3, 0.7], [y_pos, y_pos], linewidth=10 * band_intensity, color='black')
+        ax.text(0.75, y_pos, f'{(100 * (num_cysteines - i) / num_cysteines):.1f}%', verticalalignment='center', fontsize=12)
+
+    # Set fixed y-axis limits (scale invariant)
+    ax.set_ylim(predict_band_position(250, coefficients), predict_band_position(10, coefficients))
     
     ax.set_xlim(0, 1)
-    ax.set_ylim(0, max(band_positions) + 10)
-    ax.set_yticks(np.arange(0, max(band_positions) + 10, 5))
-    ax.set_yticklabels([f'{tick:.0f} kDa' for tick in ax.get_yticks()])
+    ax.set_yticks([predict_band_position(mw, coefficients) for mw in marker_positions])
+    ax.set_yticklabels([f'{mw:.0f} kDa' for mw in marker_positions])
     ax.set_xticks([])
     ax.set_xlabel('Protein Redox States', fontsize=15)
     ax.set_ylabel('Molecular Mass (kDa)', fontsize=15)
     ax.set_title('Simulated Immunoblot', fontsize=20)
-    
+
     # Invert the y-axis to match the appearance of a real blot
     ax.invert_yaxis()
-    
+
     plt.tight_layout()
-    
+
     buf = BytesIO()
     plt.savefig(buf, format='png', dpi=300)
     buf.seek(0)
@@ -94,18 +100,18 @@ if uniprot_id:
 
         st.write(f"Protein Sequence Length: {len(sequence)} amino acids")
         st.write(f"Molecular Mass (Reduced Form): {molecular_mass:.2f} kDa")
-        st.write(f"Molecular Mass (100%-Oxidised Form): {oxidised_mass:.2f} kDa")  # Display oxidised mass
+        st.write(f"Molecular Mass (100%-Oxidised Form): {oxidised_mass:.2f} kDa")
         st.write(f"Number of Cysteines: {num_cysteines}")
 
-        # (b) Add the Cleland Immunoblot message
+        # Cleland Immunoblot suitability
         if oxidised_mass < 152:
             st.success("Yes, this protein is a good candidate for Cleland immunoblotting.")
         else:
             st.warning("No, this protein is not a good candidate for Cleland immunoblotting.")
 
         if num_cysteines > 0:
-            # Use the coefficients from the standard curve
-            coefficients = [-0.00501309, 2.38407094]  # Fit coefficients from your standard curve
+            # Coefficients from the standard curve
+            coefficients = [-0.00501309, 2.38407094]  # Replace with real coefficients
             _, grouped_proteoforms = generate_proteoforms(num_cysteines)
             buf = plot_immunoblot(molecular_mass, grouped_proteoforms, num_cysteines, coefficients)
 
