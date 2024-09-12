@@ -21,7 +21,6 @@ def fetch_protein_sequence(uniprot_id):
 
 def calculate_molecular_mass(sequence):
     """Calculate molecular mass of the protein based on the sequence."""
-    # Approximate average mass of an amino acid residue in kDa
     avg_residue_mass = 0.110  # kDa (110 Da)
     molecular_mass = len(sequence) * avg_residue_mass
     return molecular_mass
@@ -40,14 +39,19 @@ def generate_proteoforms(num_cysteines):
     
     return proteoforms, grouped_proteoforms
 
-def plot_immunoblot(molecular_mass, grouped_proteoforms, num_cysteines):
+def predict_band_position(molecular_weight, coefficients):
+    """Predict the position of the band using the scaling formula from the standard curve."""
+    log_mw = np.log10(molecular_weight)
+    pixel_position = np.polyval(coefficients, log_mw)
+    return pixel_position
+
+def plot_immunoblot(molecular_mass, grouped_proteoforms, num_cysteines, coefficients):
     """Plot the positions of the redox proteoforms on a simulated immunoblot."""
     redox_grades = [(100 * (num_cysteines - k) / num_cysteines) for k in range(num_cysteines + 1)]
     
-    # Calculate band positions on the blot
-    band_positions = [molecular_mass + (5 * i) for i in range(len(redox_grades))]
+    # Calculate band positions using the scaling formula
+    band_positions = [predict_band_position(molecular_mass + (5 * i), coefficients) for i in range(len(redox_grades))]
     
-    # Simulate the appearance on a 4-15% gradient gel
     fig, ax = plt.subplots(figsize=(5, 8))
     
     for i, pos in enumerate(band_positions):
@@ -56,8 +60,8 @@ def plot_immunoblot(molecular_mass, grouped_proteoforms, num_cysteines):
         ax.text(0.75, pos, f'{redox_grades[i]:.1f}%', verticalalignment='center', fontsize=12)
     
     ax.set_xlim(0, 1)
-    ax.set_ylim(0, band_positions[-1] + 10)
-    ax.set_yticks(np.arange(0, band_positions[-1] + 10, 5))
+    ax.set_ylim(0, max(band_positions) + 10)
+    ax.set_yticks(np.arange(0, max(band_positions) + 10, 5))
     ax.set_yticklabels([f'{tick:.0f} kDa' for tick in ax.get_yticks()])
     ax.set_xticks([])
     ax.set_xlabel('Protein Redox States', fontsize=15)
@@ -84,14 +88,26 @@ if uniprot_id:
     if sequence:
         num_cysteines = sequence.count('C')  # Count the number of cysteines
         molecular_mass = calculate_molecular_mass(sequence)
+        
+        # Calculate the molecular mass of the 100%-oxidised form
+        oxidised_mass = molecular_mass + (num_cysteines * 5)
 
         st.write(f"Protein Sequence Length: {len(sequence)} amino acids")
-        st.write(f"Molecular Mass: {molecular_mass:.2f} kDa")
+        st.write(f"Molecular Mass (Reduced Form): {molecular_mass:.2f} kDa")
+        st.write(f"Molecular Mass (100%-Oxidised Form): {oxidised_mass:.2f} kDa")  # Display oxidised mass
         st.write(f"Number of Cysteines: {num_cysteines}")
 
+        # (b) Add the Cleland Immunoblot message
+        if oxidised_mass < 152:
+            st.success("Yes, this protein is a good candidate for Cleland immunoblotting.")
+        else:
+            st.warning("No, this protein is not a good candidate for Cleland immunoblotting.")
+
         if num_cysteines > 0:
+            # Use the coefficients from the standard curve
+            coefficients = [-0.00501309, 2.38407094]  # Fit coefficients from your standard curve
             _, grouped_proteoforms = generate_proteoforms(num_cysteines)
-            buf = plot_immunoblot(molecular_mass, grouped_proteoforms, num_cysteines)
+            buf = plot_immunoblot(molecular_mass, grouped_proteoforms, num_cysteines, coefficients)
 
             if buf:
                 # Display the plot
