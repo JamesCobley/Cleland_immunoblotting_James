@@ -5,3 +5,4 @@ requests
 streamlit
 scipy
 seaborn
+biopython
