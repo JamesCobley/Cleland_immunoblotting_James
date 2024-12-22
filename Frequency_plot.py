@@ -32,6 +32,10 @@ for i, binary in enumerate(binary_strings):
     ax.grid(True, linestyle="--", alpha=0.5)
     ax.legend(loc="upper right")
 
-# Adjust layout and show the plot
+# Adjust layout and save the figure
 plt.tight_layout()
+output_path = "R3_series_waves_final_plot.png"
+plt.savefig(output_path, dpi=300)
 plt.show()
+
+print(f"Figure saved as: {output_path}")
